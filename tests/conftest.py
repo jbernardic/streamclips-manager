@@ -40,8 +40,16 @@ def client():
 
 @pytest.fixture
 def admin_token(client: TestClient):
-    response = client.post("/auth/login", json={"username": "admin", "password": os.getenv("ADMIN_PASSWORD")})
-    return response.json().get("access_token")
+    response = client.post(
+        "/auth/login",
+        data={  # Note: `data` not `json`
+            "username": "admin",
+            "password": os.getenv("ADMIN_PASSWORD")
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    assert response.status_code == 200, f"Login failed: {response.text}"
+    return response.json()["access_token"]
 
 @pytest.fixture
 def created_streamer(client: TestClient, admin_token: str):

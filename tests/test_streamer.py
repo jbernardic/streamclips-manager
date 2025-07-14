@@ -82,7 +82,6 @@ def test_list_streamers_success(client: TestClient, admin_token, created_streame
     assert isinstance(data, list)
     assert data.count(created_streamer) == 1
 
-
 def test_list_streamers_unauthorized(client: TestClient):
     response = client.get(f"/streamers")
     assert response.status_code == 401
