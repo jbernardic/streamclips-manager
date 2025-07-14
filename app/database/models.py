@@ -20,3 +20,4 @@ class Streamer(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String, nullable=False)
     url = Column(String, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)

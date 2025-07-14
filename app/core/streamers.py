@@ -6,7 +6,7 @@ import app.schemas as schemas
 
 
 def create(db: Session, streamer: schemas.CreateStreamer) -> models.Streamer:
-    new_streamer = models.Streamer(name=streamer.name, url=streamer.url)
+    new_streamer = models.Streamer(name=streamer.name, url=streamer.url, is_active=streamer.is_active)
     db.add(new_streamer)
     db.commit()
     db.refresh(new_streamer)
@@ -20,6 +20,7 @@ def update(db: Session, streamer: schemas.Streamer) -> models.Streamer:
     
     existing_streamer.name = streamer.name
     existing_streamer.url = streamer.url
+    existing_streamer.is_active = streamer.is_active
 
     db.commit()
     db.refresh(existing_streamer)

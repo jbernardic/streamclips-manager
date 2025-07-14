@@ -11,8 +11,10 @@ class Token(BaseModel):
 class CreateStreamer(BaseModel):
     name: str
     url: str
+    is_active: bool = True
 
 class Streamer(BaseModel):
     id: UUID4
     name: str
     url: str
+    is_active: bool
