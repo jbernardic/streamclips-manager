@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4
 
 class UserLogin(BaseModel):
     username: str
@@ -7,3 +7,12 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class CreateStreamer(BaseModel):
+    name: str
+    url: str
+
+class Streamer(BaseModel):
+    id: UUID4
+    name: str
+    url: str
