@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.database import models
+from app.database.connection import get_db
 
 
 def get(db: Session, id: str) -> Optional[models.StreamClipsProcess]:
@@ -18,6 +19,15 @@ def get(db: Session, id: str) -> Optional[models.StreamClipsProcess]:
 def list_all(db: Session) -> List[models.StreamClipsProcess]:
     """List all processes"""
     return db.query(models.StreamClipsProcess).all()
+
+def delete(db: Session, process_id: str):
+    """Delete a process record"""
+    process = get(db, process_id)
+    if not process:
+        raise HTTPException(status_code=404, detail="Process not found")
+    
+    db.delete(process)
+    db.commit()
 
 def start_process(db: Session, streamer_id: str):
     # Start new process
@@ -56,30 +66,53 @@ def is_alive(process_id: str):
         # No exception means process exists
         return True
 
-def stop_process(db: Session, process_id: str):
+def kill_process(pid: int):
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"Killed process PID {pid}")
+    except ProcessLookupError:
+        pass  # Process already dead
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to kill process: {e}")
+
+def stop_process(db: Session, id: str):
     """Stop a process and delete the record"""
-    process = get(db, process_id)
+    process = get(db, id)
     if not process:
         raise HTTPException(status_code=404, detail="Process not found")
     
     # Kill the process
-    try:
-        os.kill(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass  # Process already dead
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to stop process: {e}")
+    kill_process(process.pid)
     
     # Delete from database
     db.delete(process)
     db.commit()
 
 
-def delete(db: Session, process_id: str):
-    """Delete a process record"""
-    process = get(db, process_id)
-    if not process:
-        raise HTTPException(status_code=404, detail="Process not found")
-    
-    db.delete(process)
-    db.commit()
+def stop_all_processes():
+    """Stop all running processes"""
+    db = next(get_db())
+    try:
+        # Get all processes from database
+        all_processes = list_all(db)
+        
+        for process in all_processes:
+            try:
+                # Kill the process
+                os.kill(process.pid, signal.SIGTERM)
+                print(f"Stopped process PID {process.pid}")
+            except ProcessLookupError:
+                # Process already dead
+                pass
+            except Exception as e:
+                print(f"Error stopping process {process.pid}: {e}")
+        
+        # Clear all process records from database
+        db.query(models.StreamClipsProcess).delete()
+        db.commit()
+        print("All processes stopped and cleaned up")
+        
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+    finally:
+        db.close()

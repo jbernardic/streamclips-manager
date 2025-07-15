@@ -68,7 +68,6 @@ def get_stream_clips_process(
 ):
     return stream_clips_processes.get(db, id)
 
-
 @stream_clips_router.post("/{id}/stop")
 def stop_stream_clips_process(
     id: UUID4,

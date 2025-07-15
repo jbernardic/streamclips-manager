@@ -1,3 +1,5 @@
+import os
+import signal
 import subprocess
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.core import stream_clips_processes
@@ -49,6 +51,7 @@ def start_scheduler():
 
 
 def stop_scheduler():
-    """Stop the scheduler"""
+    """Stop the scheduler and all processes"""
+    stream_clips_processes.stop_all_processes()
     scheduler.shutdown()
     print("Scheduler stopped")
