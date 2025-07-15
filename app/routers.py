@@ -52,7 +52,6 @@ def get_streamer(
 ):
     return streamers.get(db, id)
 
-
 # Stream Clips Process Routes
 @stream_clips_router.get("/", response_model=list[schemas.StreamClipsProcess])
 def list_stream_clips_processes(
@@ -74,11 +73,3 @@ def stop_stream_clips_process(
     db: Session = Depends(get_db)
 ):
     stream_clips_processes.stop_process(db, id)
-
-
-@stream_clips_router.post("/{id}/start")
-def start_stream_clips_process(
-    id: UUID4,
-    db: Session = Depends(get_db)
-):
-    return stream_clips_processes.start_process(db, id)
