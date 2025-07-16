@@ -1,7 +1,8 @@
+import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Boolean, Text, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, Enum, String, Boolean, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -37,3 +38,17 @@ class StreamClipsProcess(Base):
     
     # Relationship to Streamer
     streamer = relationship("Streamer", back_populates="stream_clips_processes")
+
+class LogLevel(str, enum.Enum):
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+class Log(Base):
+    __tablename__ = "logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    source = Column(String(100), nullable=False)
+    message = Column(Text, nullable=False)
+    level = Column(Enum(LogLevel), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(tz=timezone.utc))

@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import signal
 import subprocess
@@ -34,6 +35,7 @@ def process_active_streamers():
                 
     except Exception as e:
         print(f"Error in scheduler: {e}")
+        db.rollback()
     finally:
         db.close()
 
@@ -44,7 +46,8 @@ def start_scheduler():
         process_active_streamers,
         trigger='interval',
         minutes=1,
-        id='process_active_streamers'
+        id='process_active_streamers',
+        next_run_time=datetime.now()
     )
     scheduler.start()
     print("Scheduler started")

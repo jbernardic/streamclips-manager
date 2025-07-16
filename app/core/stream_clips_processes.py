@@ -2,9 +2,11 @@ import errno
 import os
 import signal
 import subprocess
+import threading
 from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from app.core import logs
 from app.database import models
 from app.database.connection import get_db
 
@@ -32,9 +34,10 @@ def delete(db: Session, process_id: str):
 def start_process(db: Session, streamer_id: str):
     # Start new process
     proc = subprocess.Popen([
-        "python", "/home/janbernardic/socialagents/streamclips_mock.py", 
+        "python", "-u", "/home/janbernardic/socialagents/streamclips_mock.py", 
         str(streamer_id)
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, 
+    start_new_session=True)
     
     # Save to database
     new_process = models.StreamClipsProcess(
@@ -44,14 +47,33 @@ def start_process(db: Session, streamer_id: str):
     db.add(new_process)
     db.commit()
     db.refresh(new_process)
+    monitor_process_output(proc)
     return new_process
 
-def is_alive(process_id: str):
-    if process_id <= 0:
+def monitor_process_output(proc: subprocess.Popen):
+    for stream_name, stream in [("stdout", proc.stdout), ("stderr", proc.stderr)]:
+        if stream is None:
+            continue
+        def reader(s, name):
+            db = next(get_db())
+            try:
+                for line in iter(s.readline, ''):
+                    if line.strip():
+                        level = models.LogLevel.INFO if name == "stdout" else models.LogLevel.ERROR
+                        logs.create(db, source=f"streamclips", message=line.strip(), level=level)
+            except Exception as e:
+                print(f"Error logging output: {e}")
+                db.rollback()
+            finally:
+                db.close()
+        threading.Thread(target=reader, args=(stream,stream_name), daemon=True).start()
+
+def is_alive(pid: int):
+    if pid <= 0:
         return False
     try:
         # signal 0 doesn't kill the process but checks if it's running
-        os.kill(process_id, 0)
+        os.kill(pid, 0)
     except OSError as e:
         if e.errno == errno.ESRCH:
             # No such process
@@ -114,5 +136,6 @@ def stop_all_processes():
         
     except Exception as e:
         print(f"Error during cleanup: {e}")
+        db.rollback()
     finally:
         db.close()

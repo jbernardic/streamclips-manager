@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
-from app.core import auth, streamers, stream_clips_processes
+from app.core import auth, logs, streamers, stream_clips_processes
 import app.schemas as schemas
 
 auth_router = APIRouter(prefix="/auth")
 streamer_router = APIRouter(prefix="/streamers", dependencies=[Depends(auth.get_current_user)])
 stream_clips_router = APIRouter(prefix="/stream-clips-processes", dependencies=[Depends(auth.get_current_user)])
+logs_router = APIRouter(prefix="/logs", dependencies=[Depends(auth.get_current_user)])
 
 @auth_router.post("/login", response_model=schemas.Token)
 def login(
@@ -73,3 +75,13 @@ def stop_stream_clips_process(
     db: Session = Depends(get_db)
 ):
     stream_clips_processes.stop_process(db, id)
+
+@logs_router.get("/")
+def get_logs(
+    source: Optional[str] = Query(None),
+    level: Optional[str] = Query(None),
+    offset: int = 0,
+    limit: int = 100
+):
+    return logs.list(source=source, level=level, offset=offset, limit=limit)
+
