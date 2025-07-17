@@ -31,42 +31,42 @@ def delete(db: Session, process_id: str):
     db.delete(process)
     db.commit()
 
-def start_process(db: Session, streamer_id: str):
+def start_process(db: Session, streamer: models.Streamer):
     # Start new process
     proc = subprocess.Popen([
         "python", "-u", "/home/janbernardic/socialagents/streamclips_mock.py", 
-        str(streamer_id)
+        str(streamer.id)
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, 
     start_new_session=True)
     
     # Save to database
     new_process = models.StreamClipsProcess(
-        streamer_id=streamer_id,
+        streamer_id=streamer.id,
         pid=proc.pid
     )
     db.add(new_process)
     db.commit()
     db.refresh(new_process)
-    monitor_process_output(proc)
+    monitor_process_output(proc, streamer.name)
     return new_process
 
-def monitor_process_output(proc: subprocess.Popen):
+def monitor_process_output(proc: subprocess.Popen, source_name: str):
     for stream_name, stream in [("stdout", proc.stdout), ("stderr", proc.stderr)]:
         if stream is None:
             continue
-        def reader(s, name):
+        def reader(s, name, source_name):
             db = next(get_db())
             try:
                 for line in iter(s.readline, ''):
                     if line.strip():
                         level = models.LogLevel.INFO if name == "stdout" else models.LogLevel.ERROR
-                        logs.create(db, source=f"streamclips", message=line.strip(), level=level)
+                        logs.create(db, source=f"streamclips-{source_name}", message=line.strip(), level=level)
             except Exception as e:
                 print(f"Error logging output: {e}")
                 db.rollback()
             finally:
                 db.close()
-        threading.Thread(target=reader, args=(stream,stream_name), daemon=True).start()
+        threading.Thread(target=reader, args=(stream,stream_name, source_name), daemon=True).start()
 
 def is_alive(pid: int):
     if pid <= 0:

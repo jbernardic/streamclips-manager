@@ -27,7 +27,7 @@ def process_active_streamers():
             ).first()
             
             if not existing:
-                proc = stream_clips_processes.start_process(db=db, streamer_id=streamer.id)
+                proc = stream_clips_processes.start_process(db=db, streamer=streamer)
                 print(f"Started process for {streamer.name} (PID: {proc.pid})")
             else:
                 if not stream_clips_processes.is_alive(existing.pid):

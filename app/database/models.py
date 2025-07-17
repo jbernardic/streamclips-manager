@@ -2,12 +2,10 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Enum, String, Boolean, Text, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, Enum, String, Boolean, Text, Integer, DateTime, ForeignKey, event
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from sqlalchemy.orm import column_property
-from sqlalchemy import select, func
 
 
 from app.database.connection import Base
@@ -29,7 +27,7 @@ class StreamClipsProcess(Base):
     created_at = Column(DateTime, default=datetime.now(tz=timezone.utc))
     
     # Relationship to Streamer
-    streamer = relationship("Streamer", back_populates="stream_clips_processes")
+    streamer = relationship("Streamer", back_populates="stream_clips_process")
 
 class Streamer(Base):
     __tablename__ = "streamers"
@@ -39,15 +37,36 @@ class Streamer(Base):
     url = Column(String, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     
-    # Relationship to StreamClipsProcess
-    stream_clips_processes = relationship("StreamClipsProcess", back_populates="streamer")
+    # Relationship to StreamClipsProcess (one-to-one)
+    stream_clips_process = relationship("StreamClipsProcess", back_populates="streamer", uselist=False, cascade="all, delete-orphan")
 
-    process_count = column_property(
-        select(func.count(StreamClipsProcess.id))
-        .where(StreamClipsProcess.streamer_id == id)
-        .correlate_except(StreamClipsProcess)
-        .scalar_subquery()
-    )
+@event.listens_for(Streamer, "before_update")
+def on_streamer_update(mapper, connection, target: Streamer):
+    from app.core import stream_clips_processes
+    from app.database.connection import get_db
+    
+    if target.stream_clips_process:
+        db = next(get_db())
+        try:
+            stream_clips_processes.stop_process(db, str(target.stream_clips_process.id))
+        except Exception as e:
+            print(f"Error stopping process on streamer update: {e}")
+        finally:
+            db.close()
+
+@event.listens_for(Streamer, "before_delete")
+def on_streamer_delete(mapper, connection, target: Streamer):
+    from app.core import stream_clips_processes
+    from app.database.connection import get_db
+    
+    if target.stream_clips_process:
+        db = next(get_db())
+        try:
+            stream_clips_processes.stop_process(db, str(target.stream_clips_process.id))
+        except Exception as e:
+            print(f"Error stopping process on streamer delete: {e}")
+        finally:
+            db.close()
 
 class LogLevel(str, enum.Enum):
     INFO = "INFO"
