@@ -34,8 +34,14 @@ def delete(db: Session, process_id: str):
 def start_process(db: Session, streamer: models.Streamer):
     # Start new process
     proc = subprocess.Popen([
-        "python", "-u", "/home/janbernardic/socialagents/streamclips_mock.py", 
-        str(streamer.id)
+        "python", "-u", "streamclips",
+        streamer.url,
+        "--output-dir", "clips",
+        "--clip-duration", "60.0",
+        "--window-timespan", "30.0",
+        "--sample-interval", "1",
+        "--baseline-duration", "180",
+        "--surge-threshold", "2.0"
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, 
     start_new_session=True)
     

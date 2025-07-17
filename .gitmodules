@@ -1,0 +1,3 @@
+[submodule "streamclips"]
+	path = streamclips
+	url = https://github.com/jbernardic/streamclips.git
