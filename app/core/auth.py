@@ -10,7 +10,7 @@ from app import schemas
 from app.database import models
 from app.database.connection import get_db
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 60*24
 ALGORITHM = "HS256"
 SECRET_KEY = os.getenv("SECRET_KEY")
 

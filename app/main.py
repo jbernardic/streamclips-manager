@@ -10,7 +10,8 @@ from app.scheduler import start_scheduler, stop_scheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import models, connection
+import app.admin as admin
+
 from . import routers
 
 @asynccontextmanager
@@ -35,3 +36,5 @@ app.add_middleware(
 app.include_router(router=routers.auth_router)
 app.include_router(router=routers.streamer_router)
 app.include_router(router=routers.stream_clips_router)
+
+admin.init(app)
