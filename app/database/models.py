@@ -61,4 +61,4 @@ class Log(Base):
     source = Column(String(100), nullable=False)
     message = Column(Text, nullable=False)
     level = Column(Enum(LogLevel), nullable=False)
-    created_at = Column(DateTime, default=datetime.now(tz=timezone.utc))
+    created_at = Column(DateTime(timezone=True), default= lambda: datetime.now(tz=timezone.utc))
