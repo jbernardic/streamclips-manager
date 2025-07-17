@@ -21,6 +21,10 @@ class User(Base):
 class StreamClipsProcess(Base):
     __tablename__ = "stream_clips_processes"
 
+    __mapper_args__ = {
+        "confirm_deleted_rows": False
+    }
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     streamer_id = Column(UUID(as_uuid=True), ForeignKey("streamers.id"), nullable=False)
     pid = Column(Integer, nullable=False)

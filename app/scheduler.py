@@ -29,9 +29,6 @@ def process_active_streamers():
             if not existing:
                 proc = stream_clips_processes.start_process(db=db, streamer=streamer)
                 print(f"Started process for {streamer.name} (PID: {proc.pid})")
-            else:
-                if not stream_clips_processes.is_alive(existing.pid):
-                    stream_clips_processes.delete(db, existing.id)
                 
     except Exception as e:
         print(f"Error in scheduler: {e}")

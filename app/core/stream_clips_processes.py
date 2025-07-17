@@ -53,26 +53,30 @@ def start_process(db: Session, streamer: models.Streamer):
     db.add(new_process)
     db.commit()
     db.refresh(new_process)
-    monitor_process_output(proc, streamer.name)
+    monitor_process_output(proc, new_process, streamer)
     return new_process
 
-def monitor_process_output(proc: subprocess.Popen, source_name: str):
+def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsProcess, streamer: models.Streamer):
+    source_name = streamer.name
+    db_proc_id = process.id
     for stream_name, stream in [("stdout", proc.stdout), ("stderr", proc.stderr)]:
         if stream is None:
             continue
-        def reader(s, name, source_name):
+        def reader(s, name, db_proc_id, source_name):
             db = next(get_db())
             try:
                 for line in iter(s.readline, ''):
                     if line.strip():
                         level = models.LogLevel.INFO if name == "stdout" else models.LogLevel.ERROR
                         logs.create(db, source=f"streamclips-{source_name}", message=line.strip(), level=level)
+                # cleanup
+                stop_process(db, db_proc_id)
             except Exception as e:
                 print(f"Error logging output: {e}")
                 db.rollback()
             finally:
                 db.close()
-        threading.Thread(target=reader, args=(stream,stream_name, source_name), daemon=True).start()
+        threading.Thread(target=reader, args=(stream,stream_name, db_proc_id, source_name), daemon=True).start()
 
 def is_alive(pid: int):
     if pid <= 0:
@@ -107,7 +111,7 @@ def stop_process(db: Session, id: str):
     """Stop a process and delete the record"""
     process = get(db, id)
     if not process:
-        raise HTTPException(status_code=404, detail="Process not found")
+        return
     
     # Kill the process
     kill_process(process.pid)
