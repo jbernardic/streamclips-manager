@@ -66,6 +66,8 @@ def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsPr
             db = next(get_db())
             try:
                 for line in iter(s.readline, ''):
+                    if not line: #EOF
+                        break
                     if line.strip():
                         level = models.LogLevel.INFO if name == "stdout" else models.LogLevel.ERROR
                         logs.create(db, source=f"streamclips-{source_name}", message=line.strip(), level=level)
