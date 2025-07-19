@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import errno
 import os
 import signal
@@ -56,6 +57,16 @@ def start_process(db: Session, streamer: models.Streamer):
     monitor_process_output(proc, new_process, streamer)
     return new_process
 
+def heartbeat_process(db: Session, db_proc_id: int):
+    process = db.query(models.StreamClipsProcess).filter_by(id=db_proc_id).first()
+    if not process:
+        return
+    process.updated_at = datetime.now(tz=timezone.utc)   
+    try:
+        db.commit()
+    except:
+        db.rollback()
+
 def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsProcess, streamer: models.Streamer):
     source_name = streamer.name
     db_proc_id = process.id
@@ -71,6 +82,7 @@ def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsPr
                     if line.strip():
                         level = models.LogLevel.INFO if name == "stdout" else models.LogLevel.ERROR
                         logs.create(db, source=f"streamclips-{source_name}", message=line.strip(), level=level)
+                        heartbeat_process(db, db_proc_id)
                 # cleanup
                 stop_process(db, db_proc_id)
             except Exception as e:

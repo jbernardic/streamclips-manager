@@ -28,7 +28,8 @@ class StreamClipsProcess(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     streamer_id = Column(UUID(as_uuid=True), ForeignKey("streamers.id"), nullable=False)
     pid = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.now(tz=timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
     
     # Relationship to Streamer
     streamer = relationship("Streamer", back_populates="stream_clips_process")

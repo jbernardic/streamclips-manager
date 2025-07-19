@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import signal
 import subprocess
@@ -29,6 +29,12 @@ def process_active_streamers():
             if not existing:
                 proc = stream_clips_processes.start_process(db=db, streamer=streamer)
                 print(f"Started process for {streamer.name} (PID: {proc.pid})")
+            else:
+                now = datetime.now(tz=timezone.utc)
+                elapsed = (now-existing.updated_at).total_seconds()
+                if elapsed > 30:
+                    stream_clips_processes.stop_process(db, existing.id)
+                    print(f"Stopped inactive process. PID {existing.pid}, Streamer {streamer.name}")
                 
     except Exception as e:
         print(f"Error in scheduler: {e}")
