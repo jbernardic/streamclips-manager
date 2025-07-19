@@ -80,26 +80,6 @@ def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsPr
                 db.close()
         threading.Thread(target=reader, args=(stream,stream_name, db_proc_id, source_name), daemon=True).start()
 
-def is_alive(pid: int):
-    if pid <= 0:
-        return False
-    try:
-        # signal 0 doesn't kill the process but checks if it's running
-        os.kill(pid, 0)
-    except OSError as e:
-        if e.errno == errno.ESRCH:
-            # No such process
-            return False
-        elif e.errno == errno.EPERM:
-            # Process exists but no permission to signal it
-            return True
-        else:
-            # Other errors
-            raise
-    else:
-        # No exception means process exists
-        return True
-
 def kill_process(pid: int):
     try:
         os.kill(pid, signal.SIGTERM)
