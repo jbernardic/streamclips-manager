@@ -44,7 +44,7 @@ def admin_token(client: TestClient):
         "/auth/login",
         data={  # Note: `data` not `json`
             "username": "admin",
-            "password": os.getenv("ADMIN_PASSWORD")
+            "password": os.getenv("ADMIN_PASSWORD", "defaultpassword")
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
