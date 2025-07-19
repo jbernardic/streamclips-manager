@@ -36,7 +36,7 @@ def start_process(db: Session, streamer: models.Streamer):
     proc = subprocess.Popen([
         "python", "-u", "streamclips",
         streamer.url,
-        "--output-dir", "clips",
+        "--output-dir", f"clips/{streamer.name}",
         "--clip-duration", "60.0",
         "--window-timespan", "30.0",
         "--sample-interval", "1",
