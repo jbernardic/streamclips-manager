@@ -1,6 +1,7 @@
 import os
+from fastapi.responses import RedirectResponse
 from markupsafe import Markup
-from sqladmin import Admin, ModelView
+from sqladmin import Admin, ModelView, BaseView, expose
 from .database import models, connection
 from .admin_auth import AdminAuth
 
@@ -17,6 +18,8 @@ class LogAdmin(ModelView, model=models.Log):
     column_default_sort = (models.Log.created_at, True)
 
 class StreamConfigAdmin(ModelView, model=models.StreamConfig):
+    name_plural = "Stream Config"
+    
     column_list = [models.StreamConfig.clip_duration, models.StreamConfig.window_timespan, 
                    models.StreamConfig.sample_interval, models.StreamConfig.baseline_duration, 
                    models.StreamConfig.surge_threshold, models.StreamConfig.updated_at]
@@ -25,25 +28,24 @@ class StreamConfigAdmin(ModelView, model=models.StreamConfig):
     # Only allow editing the first (and only) record
     can_create = False
     can_delete = False
+
+class FileBrowserView(BaseView):
+    name = "File Browser"
+    icon = "fa-solid fa-folder"
     
-    def get_list_query(self):
-        """Ensure only one record exists and return it."""
-        from .database.connection import get_db
-        db = next(get_db())
-        try:
-            # Get or create the singleton config
-            from .core.stream_clips_processes import get_stream_config
-            get_stream_config(db)
-            return super().get_list_query().limit(1)
-        finally:
-            db.close()
+    def is_accessible(self, request):
+        return os.getenv("STORAGE_SERVER_HOST") != None
+        
+    @expose("/file-browser", methods=["GET"])
+    async def redirect(self, request):
+        return RedirectResponse(url=f"https://{os.getenv('STORAGE_SERVER_HOST')}")
 
 def init(app):
     authentication_backend = AdminAuth(secret_key=os.getenv("SECRET_KEY"))
     app.admin = Admin(app, connection.engine, authentication_backend=authentication_backend)
 
     app.admin.add_view(StreamerAdmin)
-    app.admin.add_view(LogAdmin)
     app.admin.add_view(StreamConfigAdmin)
-
+    app.admin.add_view(LogAdmin)
+    app.admin.add_view(FileBrowserView)
     
