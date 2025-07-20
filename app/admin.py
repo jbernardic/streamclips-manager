@@ -1,10 +1,11 @@
 import os
 from fastapi.responses import RedirectResponse
 from markupsafe import Markup
-from sqladmin import Admin, ModelView, BaseView, expose
+from sqladmin import Admin, ModelView, BaseView, expose, action
 from .database import models, connection
 from .admin_auth import AdminAuth
 
+from .database.connection import get_db
 
 class StreamerAdmin(ModelView, model=models.Streamer):
     column_list = [models.Streamer.name, models.Streamer.url, models.Streamer.is_active, models.Streamer.stream_clips_process]
@@ -16,6 +17,20 @@ class StreamerAdmin(ModelView, model=models.Streamer):
 class LogAdmin(ModelView, model=models.Log):
     column_list = [models.Log.created_at, models.Log.source, models.Log.level, models.Log.message]
     column_default_sort = (models.Log.created_at, True)
+    
+    @action(
+        name="delete_all",
+        label="Delete all items",
+        add_in_list=True
+    )
+    async def delete_all_logs(self, request):
+        db = next(get_db())
+        try:
+            db.query(models.Log).delete()
+            db.commit()
+            return RedirectResponse(url=request.url_for("admin:list", identity="log"), status_code=302)
+        finally:
+            db.close()
 
 class StreamConfigAdmin(ModelView, model=models.StreamConfig):
     name_plural = "Stream Config"
