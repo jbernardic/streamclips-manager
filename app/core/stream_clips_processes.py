@@ -33,17 +33,33 @@ def delete(db: Session, process_id: str):
     db.commit()
 
 def start_process(db: Session, streamer: models.Streamer):
-    # Start new process
-    proc = subprocess.Popen([
+    # Build output directory path
+    storage_path = os.environ.get("STORAGE_SERVER_PATH", "")
+    if storage_path:
+        output_dir = f"{storage_path}/clips/{streamer.name}"
+    else:
+        output_dir = f"clips/{streamer.name}"
+    
+    # Build command with storage server if configured
+    cmd = [
         "python", "-u", "streamclips",
         streamer.url,
-        "--output-dir", f"clips/{streamer.name}",
+        "--output-dir", output_dir,
         "--clip-duration", "60.0",
         "--window-timespan", "30.0",
         "--sample-interval", "1",
         "--baseline-duration", "180",
         "--surge-threshold", "2.0"
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, 
+    ]
+    
+    # Add storage server if env vars are set
+    storage_user = os.environ.get("STORAGE_SERVER_USER")
+    storage_host = os.environ.get("STORAGE_SERVER_HOST")
+    if storage_user and storage_host:
+        cmd.extend(["--storage-server", f"{storage_user}@{storage_host}"])
+    
+    # Start new process
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, 
     start_new_session=True)
     
     # Save to database
