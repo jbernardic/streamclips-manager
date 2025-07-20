@@ -55,8 +55,11 @@ def start_process(db: Session, streamer: models.Streamer):
     # Add storage server if env vars are set
     storage_user = os.environ.get("STORAGE_SERVER_USER")
     storage_host = os.environ.get("STORAGE_SERVER_HOST")
+    storage_password = os.environ.get("STORAGE_SERVER_PASSWORD")
     if storage_user and storage_host:
         cmd.extend(["--storage-server", f"{storage_user}@{storage_host}"])
+        if storage_password:
+            cmd.extend(["--storage-password", storage_password])
     
     # Start new process
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, 
