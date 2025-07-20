@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Enum, String, Boolean, Text, Integer, DateTime, ForeignKey, event
+from sqlalchemy import Column, Enum, String, Boolean, Text, Integer, DateTime, ForeignKey, event, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -77,6 +77,32 @@ class LogLevel(str, enum.Enum):
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
+
+class StreamConfig(Base):
+    __tablename__ = "stream_config"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    clip_duration = Column(Float, nullable=False, default=60.0)
+    window_timespan = Column(Float, nullable=False, default=30.0)
+    sample_interval = Column(Integer, nullable=False, default=1)
+    baseline_duration = Column(Integer, nullable=False, default=180)
+    surge_threshold = Column(Float, nullable=False, default=2.0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc))
+
+@event.listens_for(StreamConfig, "before_update")
+def on_stream_config_update(mapper, connection, target: StreamConfig):
+    """Stop all processes when config is updated so they restart with new settings."""
+    from app.core import stream_clips_processes
+    from app.database.connection import get_db
+    
+    db = next(get_db())
+    try:
+        stream_clips_processes.stop_all_processes()
+    except Exception as e:
+        print(f"Error stopping all processes: {e}")
+    finally:
+        db.close()
 
 class Log(Base):
     __tablename__ = "logs"

@@ -7,7 +7,7 @@ import threading
 from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from app.core import logs
+from app.core import configs, logs
 from app.database import models
 from app.database.connection import get_db
 
@@ -33,16 +33,19 @@ def delete(db: Session, process_id: str):
     db.commit()
 
 def start_process(db: Session, streamer: models.Streamer):
-    # Build command with storage server if configured
+    # Get configuration
+    config = configs.get_stream_config(db)
+    
+    # Build command with configuration
     cmd = [
         "python", "-u", "streamclips",
         streamer.url,
         "--output-dir", f"clips/{streamer.name}",
-        "--clip-duration", "60.0",
-        "--window-timespan", "30.0",
-        "--sample-interval", "1",
-        "--baseline-duration", "180",
-        "--surge-threshold", "2.0"
+        "--clip-duration", str(config.clip_duration),
+        "--window-timespan", str(config.window_timespan),
+        "--sample-interval", str(config.sample_interval),
+        "--baseline-duration", str(config.baseline_duration),
+        "--surge-threshold", str(config.surge_threshold)
     ]
     
     # Add storage server if env vars are set

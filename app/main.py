@@ -1,6 +1,8 @@
 
 import dotenv
 
+from app.core import configs
+
 dotenv.load_dotenv(override=True)
 
 from contextlib import asynccontextmanager
@@ -16,6 +18,7 @@ from . import routers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configs.init()
     create_admin_user()
     start_scheduler()
     yield
