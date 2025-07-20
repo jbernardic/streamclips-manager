@@ -32,7 +32,7 @@ def delete(db: Session, process_id: str):
     db.delete(process)
     db.commit()
 
-def start_process(db: Session, streamer: models.Streamer):
+def start_process(db: Session, streamer: models.Streamer, instance_hostname: str):
     # Get configuration
     config = configs.get_stream_config(db)
     
@@ -67,6 +67,7 @@ def start_process(db: Session, streamer: models.Streamer):
     # Save to database
     new_process = models.StreamClipsProcess(
         streamer_id=streamer.id,
+        instance_hostname=instance_hostname,
         pid=proc.pid
     )
     db.add(new_process)
@@ -158,6 +159,28 @@ def stop_all_processes():
         
     except Exception as e:
         print(f"Error during cleanup: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+def stop_instance_processes(instance_hostname: str):
+    """Stop all processes for specific instance"""
+    db = next(get_db())
+    try:
+        processes = db.query(models.StreamClipsProcess).filter(
+            models.StreamClipsProcess.instance_hostname == instance_hostname
+        ).all()
+        
+        for process in processes:
+            try:
+                kill_process(process.pid)
+                db.delete(process)
+                print(f"Stopped process PID {process.pid} from instance {instance_hostname}")
+            except Exception as e:
+                print(f"Error stopping process {process.pid}: {e}")
+        
+        db.commit()
+    except Exception:
         db.rollback()
     finally:
         db.close()

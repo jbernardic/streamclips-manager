@@ -18,6 +18,17 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, nullable=False, default=False)
 
+class Instance(Base):
+    __tablename__ = "instances"
+
+    hostname = Column(String, primary_key=True)
+    max_processes = Column(Integer, nullable=False, default=10)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc))
+    last_heartbeat = Column(DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc))
+    
+    # Relationship to StreamClipsProcess
+    processes = relationship("StreamClipsProcess", back_populates="instance")
+
 class StreamClipsProcess(Base):
     __tablename__ = "stream_clips_processes"
 
@@ -27,12 +38,14 @@ class StreamClipsProcess(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     streamer_id = Column(UUID(as_uuid=True), ForeignKey("streamers.id"), nullable=False)
+    instance_hostname = Column(String, ForeignKey("instances.hostname"), nullable=False)
     pid = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
     
-    # Relationship to Streamer
+    # Relationships
     streamer = relationship("Streamer", back_populates="stream_clips_process")
+    instance = relationship("Instance", back_populates="processes")
 
 class Streamer(Base):
     __tablename__ = "streamers"

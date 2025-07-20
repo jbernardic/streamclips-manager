@@ -1,7 +1,7 @@
 
 import dotenv
 
-from app.core import configs
+from app.core import configs, instances, stream_clips_processes
 
 dotenv.load_dotenv(override=True)
 
@@ -19,10 +19,12 @@ from . import routers
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configs.init()
+    instances.register_instance()
     create_admin_user()
     start_scheduler()
     yield
     stop_scheduler()
+    stream_clips_processes.stop_instance_processes(instances.get_current_hostname())
 
 app = FastAPI(lifespan=lifespan)
 

@@ -3,7 +3,7 @@ import os
 import signal
 import subprocess
 from apscheduler.schedulers.background import BackgroundScheduler
-from app.core import stream_clips_processes
+from app.core import stream_clips_processes, instances
 from app.database.connection import get_db
 from app.database import models
 
@@ -12,29 +12,50 @@ scheduler = BackgroundScheduler()
 
 
 def process_active_streamers():
-    """Start processes for active streamers"""
+    """Start processes for active streamers on this instance"""
     db = next(get_db())
     try:
-        # Get active streamers
-        active_streamers = db.query(models.Streamer).filter(
-            models.Streamer.is_active == True
-        ).all()
+        hostname = instances.get_current_hostname()
         
-        for streamer in active_streamers:
-            # Check if already has running process
-            existing = db.query(models.StreamClipsProcess).filter(
-                models.StreamClipsProcess.streamer_id == streamer.id
-            ).first()
-            
-            if not existing:
-                proc = stream_clips_processes.start_process(db=db, streamer=streamer)
-                print(f"Started process for {streamer.name} (PID: {proc.pid})")
-            else:
-                now = datetime.now(tz=timezone.utc)
-                elapsed = (now-existing.updated_at).total_seconds()
-                if elapsed > 30:
-                    stream_clips_processes.stop_process(db, existing.id)
-                    print(f"Stopped inactive process. PID {existing.pid}, Streamer {streamer.name}")
+        # Register/update instance and heartbeat
+        instances.update_heartbeat(db, hostname)
+        
+        # Clean up dead instances
+        dead_instances = instances.get_dead_instances(db)
+        for dead_instance in dead_instances:
+            cleaned_count = instances.cleanup_dead_instance_processes(db, dead_instance.hostname)
+            if cleaned_count > 0:
+                print(f"Cleaned up {cleaned_count} processes from dead instance {dead_instance.hostname}")
+        
+        # Check capacity for this instance
+        available_capacity = instances.get_available_capacity(db, hostname)
+        if available_capacity <= 0:
+            print(f"Instance {hostname} at capacity")
+            return
+        
+        # Claim available streamers with locking
+        claimed_streamers = instances.claim_available_streamers(db, hostname, available_capacity)
+        
+        # Start processes for claimed streamers
+        for streamer in claimed_streamers:
+            try:
+                proc = stream_clips_processes.start_process(db=db, streamer=streamer, instance_hostname=hostname)
+                print(f"Started process for {streamer.name} on {hostname} (PID: {proc.pid})")
+            except Exception as e:
+                print(f"Failed to start process for {streamer.name}: {e}")
+                db.rollback()
+        
+        # Health check existing processes for this instance
+        my_processes = instances.get_instance_processes(db, hostname)
+        for process in my_processes:
+            now = datetime.now(tz=timezone.utc)
+            elapsed = (now - process.updated_at).total_seconds()
+            if elapsed > 45:
+                try:
+                    stream_clips_processes.stop_process(db, str(process.id))
+                    print(f"Stopped inactive process. PID {process.pid}, Streamer {process.streamer.name}")
+                except Exception as e:
+                    print(f"Error stopping process {process.id}: {e}")
                 
     except Exception as e:
         print(f"Error in scheduler: {e}")
@@ -57,7 +78,6 @@ def start_scheduler():
 
 
 def stop_scheduler():
-    """Stop the scheduler and all processes"""
-    stream_clips_processes.stop_all_processes()
+    """Stop the scheduler"""
     scheduler.shutdown()
     print("Scheduler stopped")
