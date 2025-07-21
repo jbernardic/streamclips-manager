@@ -38,43 +38,80 @@ jobs:
         tar -xzf hcloud.tar.gz
         sudo mv hcloud /usr/local/bin/
         hcloud version
+
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        # Configure SSH to skip host key checking
+        cat >> ~/.ssh/config << SSHEOF
+        Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+        SSHEOF
     
-    - name: Get server IPs
-      id: servers
+    - name: Deploy to all instances
       env:
         HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
       run: |
-        # Get all server IPs with app=instance label
-        SERVER_IPS=$(hcloud server list -l app=instance -o noheader -o columns=public_ipv4 | tr '\n' ',' | sed 's/,$//')
+        # Get all servers with the 'instance' label
+        SERVERS=$(hcloud server list -l app=instance -o noheader -o columns=name)
         
-        if [ -z "$SERVER_IPS" ]; then
+        if [ -z "$SERVERS" ]; then
           echo "No servers found with app=instance label"
           exit 1
         fi
         
-        echo "Found servers: $SERVER_IPS"
-        echo "ips=$SERVER_IPS" >> $GITHUB_OUTPUT
-    
-    - name: Deploy to Hetzner servers
-      uses: carlosflorencio/hetzner_deployer@v1
-      with:
-        servers: ${{ steps.servers.outputs.ips }}
-        hetzner_token: ${{ secrets.HCLOUD_TOKEN }}
-        ssh_key: ${{ secrets.SSH_KEY }}
-        ssh_port: 22
-        graceful_wait_seconds: 5
-        commands: |
-          docker rm -f socialagents || true
-          docker run -d --restart always \
-            --name socialagents \
-            -p 8000:8000 \
-            -v socialagents_data:/app/data \
-            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            -e SECRET_KEY="${{ secrets.SECRET_KEY }}" \
-            -e ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}" \
-            -e STORAGE_SERVER_HOST="${{ secrets.STORAGE_SERVER_HOST }}" \
-            -e STORAGE_SERVER_USER="${{ secrets.STORAGE_SERVER_USER }}" \
-            -e STORAGE_SERVER_PASSWORD="${{ secrets.STORAGE_SERVER_PASSWORD }}" \
-            -e STORAGE_SERVER_PATH="${{ vars.STORAGE_SERVER_PATH }}" \
-            -e INSTANCE_MAX_PROCESSES="${{ vars.INSTANCE_MAX_PROCESSES }}" \
-            ghcr.io/${{ github.repository }}:latest
+        echo "Found servers with app=instance label:"
+        echo "$SERVERS"
+        
+        # Deploy to each server
+        for server in $SERVERS; do
+          echo "🚀 Deploying to $server..."
+          
+          hcloud server ssh $server << 'EOF'
+            set -e  # Exit on any error
+            
+            echo "🛑 Stopping and removing old container..."
+            docker stop socialagents || true
+            docker rm socialagents || true
+
+            echo "🗑️ Removing old images..."
+            docker image prune -f
+            
+            echo "📦 Pulling new image..."
+            docker pull ghcr.io/${{ github.repository }}:latest
+            
+            echo "▶️ Starting new container..."
+            docker run -d \
+              --name socialagents \
+              --restart unless-stopped \
+              -p 8000:8000 \
+              -v socialagents_data:/app/data \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              -e SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              -e ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}" \
+              -e STORAGE_SERVER_HOST="${{ secrets.STORAGE_SERVER_HOST }}" \
+              -e STORAGE_SERVER_USER="${{ secrets.STORAGE_SERVER_USER }}" \
+              -e STORAGE_SERVER_PASSWORD="${{ secrets.STORAGE_SERVER_PASSWORD }}" \
+              -e STORAGE_SERVER_PATH="${{ vars.STORAGE_SERVER_PATH }}" \
+              -e INSTANCE_MAX_PROCESSES="${{ vars.INSTANCE_MAX_PROCESSES }}" \
+              ghcr.io/${{ github.repository }}:latest
+            
+            echo "✅ Deployment complete on $(hostname)"
+            echo "📊 Container status:"
+            docker ps | grep socialagents
+        EOF
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Successfully deployed to $server"
+          else
+            echo "❌ Failed to deploy to $server"
+            exit 1
+          fi
+        done
+        
+        echo "🎉 All deployments completed successfully!"
