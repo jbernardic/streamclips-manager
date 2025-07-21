@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  socialagents:
+    image: ghcr.io/jbernardic/socialagents:latest
+    container_name: socialagents
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - socialagents_data:/app/data
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - STORAGE_SERVER_HOST=${STORAGE_SERVER_HOST}
+      - STORAGE_SERVER_USER=${STORAGE_SERVER_USER}
+      - STORAGE_SERVER_PASSWORD=${STORAGE_SERVER_PASSWORD}
+      - STORAGE_SERVER_PATH=${STORAGE_SERVER_PATH}
+      - INSTANCE_MAX_PROCESSES=${INSTANCE_MAX_PROCESSES}
+
+volumes:
+  socialagents_data:

@@ -31,3 +31,73 @@ jobs:
         push: true
         platforms: linux/arm64
         tags: ghcr.io/${{ github.repository }}:latest
+
+    - name: Install hcloud CLI
+      run: |
+        wget -O hcloud.tar.gz https://github.com/hetznercloud/cli/releases/latest/download/hcloud-linux-amd64.tar.gz
+        tar -xzf hcloud.tar.gz
+        sudo mv hcloud /usr/local/bin/
+        hcloud version
+    
+    - name: Deploy to all instances
+      env:
+        HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      run: |
+        # Get all servers with the 'instance' label
+        SERVERS=$(hcloud server list -l app=instance -o noheader -o columns=name)
+        
+        if [ -z "$SERVERS" ]; then
+          echo "No servers found with app=instance label"
+          exit 1
+        fi
+        
+        echo "Found servers with app=instance label:"
+        echo "$SERVERS"
+        
+        # Deploy to each server
+        for server in $SERVERS; do
+          echo "🚀 Deploying to $server..."
+          
+          hcloud server ssh $server << 'EOF'
+            set -e  # Exit on any error
+            
+            cd /opt/socialagents
+            
+            echo "📥 Updating docker-compose.yml..."
+            curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+            
+            echo "🛑 Stopping current containers..."
+            docker-compose down
+            
+            echo "🗑️ Removing old images..."
+            docker image prune -f
+            
+            echo "📦 Pulling new images..."
+            docker-compose pull
+            
+            echo "▶️ Starting updated containers with environment variables..."
+            export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+            export SECRET_KEY="${{ secrets.SECRET_KEY }}"
+            export ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}"
+            export STORAGE_SERVER_HOST="${{ secrets.STORAGE_SERVER_HOST }}"
+            export STORAGE_SERVER_USER="${{ secrets.STORAGE_SERVER_USER }}"
+            export STORAGE_SERVER_PASSWORD="${{ secrets.STORAGE_SERVER_PASSWORD }}"
+            export STORAGE_SERVER_PATH="${{ vars.STORAGE_SERVER_PATH }}"
+            export INSTANCE_MAX_PROCESSES="${{ vars.INSTANCE_MAX_PROCESSES }}"
+
+            docker-compose up -d
+            
+            echo "✅ Deployment complete on $(hostname)"
+            echo "📊 Container status:"
+            docker-compose ps
+        EOF
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Successfully deployed to $server"
+          else
+            echo "❌ Failed to deploy to $server"
+            exit 1
+          fi
+        done
+        
+        echo "🎉 All deployments completed successfully!"
