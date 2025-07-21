@@ -1,17 +1,17 @@
+import asyncio
 from datetime import datetime, timezone
 import os
 import signal
 import subprocess
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.core import stream_clips_processes, instances
 from app.database.connection import get_db
 from app.database import models
 
 
-scheduler = BackgroundScheduler()
+scheduler = AsyncIOScheduler()
 
-
-def process_active_streamers():
+async def process_active_streamers():
     """Start processes for active streamers on this instance"""
     db = next(get_db())
     try:
@@ -47,21 +47,15 @@ def process_active_streamers():
         
         # Health check existing processes for this instance
         my_processes = instances.get_instance_processes(db, hostname)
-        for process in my_processes:
-            now = datetime.now(tz=timezone.utc)
-            elapsed = (now - process.updated_at).total_seconds()
-            if elapsed > 45:
-                try:
-                    stream_clips_processes.stop_process(db, str(process.id))
-                    print(f"Stopped inactive process. PID {process.pid}")
-                except Exception as e:
-                    print(f"Error stopping process {process.id}: {e}")
                 
     except Exception as e:
         print(f"Error in scheduler: {e}")
-        db.rollback()
+        db.rollback()   
     finally:
         db.close()
+
+    for process in my_processes:
+        await stream_clips_processes.stop_if_inactive(process.id, process.pid)
 
 
 def start_scheduler():

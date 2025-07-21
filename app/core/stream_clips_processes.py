@@ -1,5 +1,6 @@
+import asyncio
 from datetime import datetime, timezone
-import errno
+import psutil
 import os
 import signal
 import subprocess
@@ -76,15 +77,32 @@ def start_process(db: Session, streamer: models.Streamer, instance_hostname: str
     monitor_process_output(proc, new_process, streamer)
     return new_process
 
-def heartbeat_process(db: Session, db_proc_id: int):
-    process = db.query(models.StreamClipsProcess).filter_by(id=db_proc_id).first()
-    if not process:
-        return
-    process.updated_at = datetime.now(tz=timezone.utc)   
+async def is_hanging(pid):
+    check_duration = 10
+    cpu_threshold = 0.00
+
     try:
-        db.commit()
-    except:
-        db.rollback()
+        p = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return False  # Process does not exist
+    
+    cpu_start = p.cpu_times()
+    await asyncio.sleep(check_duration)
+    cpu_end = p.cpu_times()
+    
+    cpu_diff = (cpu_end.user - cpu_start.user) + (cpu_end.system - cpu_start.system)
+    return cpu_diff/check_duration <= cpu_threshold
+
+async def stop_if_inactive(db_proc_id: int, pid: int):
+    hanging = await is_hanging(pid)
+    if hanging:
+        db = next(get_db())
+        try:
+            stop_process(db, db_proc_id)
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
 
 def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsProcess, streamer: models.Streamer):
     source_name = streamer.name
@@ -101,7 +119,6 @@ def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsPr
                     if line.strip():
                         level = models.LogLevel.INFO if name == "stdout" else models.LogLevel.ERROR
                         logs.create(db, source=f"streamclips-{source_name}", message=line.strip(), level=level)
-                        heartbeat_process(db, db_proc_id)
                 # cleanup
                 stop_process(db, db_proc_id)
             except Exception as e:

@@ -41,7 +41,6 @@ class StreamClipsProcess(Base):
     instance_hostname = Column(String, ForeignKey("instances.hostname"), nullable=False)
     pid = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
     
     # Relationships
     streamer = relationship("Streamer", back_populates="stream_clips_process")
