@@ -82,13 +82,13 @@ jobs:
             curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
             
             echo "🛑 Stopping current containers..."
-            docker-compose down
+            docker compose down
             
             echo "🗑️ Removing old images..."
             docker image prune -f
             
             echo "📦 Pulling new images..."
-            docker-compose pull
+            docker compose pull
             
             echo "▶️ Starting updated containers with environment variables..."
             export DATABASE_URL="${{ secrets.DATABASE_URL }}"
@@ -100,11 +100,11 @@ jobs:
             export STORAGE_SERVER_PATH="${{ vars.STORAGE_SERVER_PATH }}"
             export INSTANCE_MAX_PROCESSES="${{ vars.INSTANCE_MAX_PROCESSES }}"
 
-            docker-compose up -d
+            docker compose up -d
             
             echo "✅ Deployment complete on $(hostname)"
             echo "📊 Container status:"
-            docker-compose ps
+            docker compose ps
         EOF
           
           if [ $? -eq 0 ]; then
