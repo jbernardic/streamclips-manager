@@ -53,7 +53,7 @@ def process_active_streamers():
             if elapsed > 45:
                 try:
                     stream_clips_processes.stop_process(db, str(process.id))
-                    print(f"Stopped inactive process. PID {process.pid}, Streamer {process.streamer.name}")
+                    print(f"Stopped inactive process. PID {process.pid}")
                 except Exception as e:
                     print(f"Error stopping process {process.id}: {e}")
                 
