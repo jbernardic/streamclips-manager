@@ -75,6 +75,7 @@ jobs:
           hcloud server ssh $server << 'EOF'
             set -e  # Exit on any error
             
+            mkdir -p /opt/socialagents
             cd /opt/socialagents
             
             echo "📥 Updating docker-compose.yml..."
