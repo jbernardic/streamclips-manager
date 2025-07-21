@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libxslt-dev \
     ffmpeg \
     curl \
+    sshpass \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
