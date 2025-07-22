@@ -16,7 +16,7 @@ def get_current_hostname() -> str:
 def register_instance() -> models.Instance:
     """Register or update instance in database"""
     hostname = get_current_hostname()
-    max_processes = os.getenv("INSTANCE_MAX_PROCESSES", 10)
+    max_processes = os.getenv("INSTANCE_MAX_PROCESSES", 5)
 
     db = next(get_db())
     try:    
