@@ -76,10 +76,10 @@ jobs:
           echo "🚀 Deploying to $server..."
           
           max_processes=$(hcloud server describe "$server" -o json | jq -r '
-            if .server.labels.max_processes then
-              .server.labels.max_processes
+            if (.labels.max_processes // null) != null then
+              .labels.max_processes
             else
-              (.server.cores | tostring)
+              (.server.cores // .cores // 2 | tostring)
             end
           ')
           
