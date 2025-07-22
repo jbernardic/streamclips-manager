@@ -83,41 +83,42 @@ jobs:
             end
           ')
           
-          hcloud server ssh $server << EOF
-            set -e  # Exit on any error
+          # Pass variables through environment to SSH session
+          hcloud server ssh $server "
+            set -e
             
-            echo "🛑 Stopping and removing old container..."
+            echo '🛑 Stopping and removing old container...'
             docker stop socialagents || true
             docker rm socialagents || true
 
-            echo "🗑️ Removing old images..."
+            echo '🗑️ Removing old images...'
             docker image prune -f
             
-            echo "📦 Pulling new image..."
-            echo "\${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u \${{ github.actor }} --password-stdin
-            docker pull ghcr.io/\${{ github.repository }}:latest
+            echo '📦 Pulling new image...'
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+            docker pull ghcr.io/${{ github.repository }}:latest
             
-            echo "▶️ Starting new container..."
-            docker run -d \
-              --name socialagents \
-              --restart unless-stopped \
-              -p 8000:8000 \
-              -v socialagents_data:/app/data \
-              -e DATABASE_URL="\${{ secrets.DATABASE_URL }}" \
-              -e SECRET_KEY="\${{ secrets.SECRET_KEY }}" \
-              -e ADMIN_PASSWORD="\${{ secrets.ADMIN_PASSWORD }}" \
-              -e STORAGE_SERVER_HOST="\${{ secrets.STORAGE_SERVER_HOST }}" \
-              -e STORAGE_SERVER_USER="\${{ secrets.STORAGE_SERVER_USER }}" \
-              -e STORAGE_SERVER_PASSWORD="\${{ secrets.STORAGE_SERVER_PASSWORD }}" \
-              -e STORAGE_SERVER_PATH="\${{ vars.STORAGE_SERVER_PATH }}" \
-              -e INSTANCE_MAX_PROCESSES="$max_processes" \
-              -e INSTANCE_ID="$server" \
-              ghcr.io/\${{ github.repository }}:latest
+            echo '▶️ Starting new container...'
+            docker run -d \\
+              --name socialagents \\
+              --restart unless-stopped \\
+              -p 8000:8000 \\
+              -v socialagents_data:/app/data \\
+              -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \\
+              -e SECRET_KEY='${{ secrets.SECRET_KEY }}' \\
+              -e ADMIN_PASSWORD='${{ secrets.ADMIN_PASSWORD }}' \\
+              -e STORAGE_SERVER_HOST='${{ secrets.STORAGE_SERVER_HOST }}' \\
+              -e STORAGE_SERVER_USER='${{ secrets.STORAGE_SERVER_USER }}' \\
+              -e STORAGE_SERVER_PASSWORD='${{ secrets.STORAGE_SERVER_PASSWORD }}' \\
+              -e STORAGE_SERVER_PATH='${{ vars.STORAGE_SERVER_PATH }}' \\
+              -e INSTANCE_MAX_PROCESSES='$max_processes' \\
+              -e INSTANCE_ID='$server' \\
+              ghcr.io/${{ github.repository }}:latest
             
-            echo "✅ Deployment complete on $(hostname)"
-            echo "📊 Container status:"
+            echo '✅ Deployment complete on' \$(hostname)
+            echo '📊 Container status:'
             docker ps | grep socialagents
-        EOF
+          "
           
           if [ $? -eq 0 ]; then
             echo "✅ Successfully deployed to $server"
