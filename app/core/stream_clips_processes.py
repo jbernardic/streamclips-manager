@@ -146,6 +146,10 @@ def stop_process(db: Session, id: str):
     # Kill the process
     kill_process(process.pid)
     
+    # Update streamer's last_processed_at timestamp
+    if process.streamer:
+        process.streamer.last_processed_at = datetime.now(timezone.utc)
+    
     # Delete from database
     db.delete(process)
     db.commit()
@@ -163,8 +167,15 @@ def stop_all_processes():
                 # Kill the process
                 os.kill(process.pid, signal.SIGTERM)
                 print(f"Stopped process PID {process.pid}")
+                
+                # Update streamer's last_processed_at timestamp
+                if process.streamer:
+                    process.streamer.last_processed_at = datetime.now(timezone.utc)
+                    
             except ProcessLookupError:
-                # Process already dead
+                # Process already dead, still update timestamp
+                if process.streamer:
+                    process.streamer.last_processed_at = datetime.now(timezone.utc)
                 pass
             except Exception as e:
                 print(f"Error stopping process {process.pid}: {e}")
@@ -191,6 +202,11 @@ def stop_instance_processes(instance_hostname: str):
         for process in processes:
             try:
                 kill_process(process.pid)
+                
+                # Update streamer's last_processed_at timestamp
+                if process.streamer:
+                    process.streamer.last_processed_at = datetime.now(timezone.utc)
+                
                 db.delete(process)
                 print(f"Stopped process PID {process.pid} from instance {instance_hostname}")
             except Exception as e:

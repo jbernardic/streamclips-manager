@@ -53,6 +53,7 @@ class Streamer(Base):
     name = Column(String, nullable=False)
     url = Column(String, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
+    last_processed_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationship to StreamClipsProcess (one-to-one)
     stream_clips_process = relationship("StreamClipsProcess", back_populates="streamer", uselist=False, cascade="all, delete-orphan")

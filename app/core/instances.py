@@ -10,7 +10,7 @@ from app.database.connection import get_db
 
 def get_current_hostname() -> str:
     """Get the current instance hostname"""
-    return socket.gethostname()
+    return os.getenv("INSTANCE_ID", socket.gethostname())
 
 
 def register_instance() -> models.Instance:
@@ -97,10 +97,16 @@ def claim_available_streamers(db: Session, hostname: str = None, max_count: int 
     if max_count <= 0:
         return []
     
-    # Find streamers without processes using SELECT FOR UPDATE SKIP LOCKED
+    # 1 minute cooldown period
+    cooldown_cutoff = datetime.now(timezone.utc) - timedelta(minutes=1)
+    
+    # Find streamers without processes and not recently processed
     available_streamers = db.query(models.Streamer).filter(
         models.Streamer.is_active == True,
-        ~exists().where(models.StreamClipsProcess.streamer_id == models.Streamer.id)
+        ~exists().where(models.StreamClipsProcess.streamer_id == models.Streamer.id),
+        # Exclude streamers processed within cooldown period
+        (models.Streamer.last_processed_at.is_(None)) | 
+        (models.Streamer.last_processed_at < cooldown_cutoff)
     ).with_for_update(skip_locked=True).limit(max_count).all()
     
     return available_streamers
@@ -132,6 +138,9 @@ def cleanup_dead_instance_processes(db: Session, hostname: str):
     ).all()
     
     for process in processes:
+        # Update streamer's last_processed_at timestamp
+        if process.streamer:
+            process.streamer.last_processed_at = datetime.now(timezone.utc)
         db.delete(process)
     
     db.commit()
