@@ -74,6 +74,7 @@ class InstanceAdmin(ModelView, model=models.Instance):
         models.Instance.last_heartbeat
     ]
     column_default_sort = (models.Instance.last_heartbeat, True)
+    form_columns = [models.Instance.max_processes]
     
     def list_query(self, request: Request):
         return select(models.Instance).options(
@@ -89,7 +90,6 @@ class InstanceAdmin(ModelView, model=models.Instance):
     # Read-only - instances are managed automatically
     can_create = False
     can_delete = False
-    can_edit = False
     
     column_formatters = {
         "current_load": lambda m, a: InstanceAdmin.current_load(None, m)

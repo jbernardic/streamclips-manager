@@ -16,7 +16,6 @@ def get_current_hostname() -> str:
 def register_instance() -> models.Instance:
     """Register or update instance in database"""
     hostname = get_current_hostname()
-    max_processes = int(os.getenv("INSTANCE_MAX_PROCESSES", 5))
 
     db = next(get_db())
     try:    
@@ -25,12 +24,10 @@ def register_instance() -> models.Instance:
         ).first()
 
         if instance:
-            instance.max_processes = max_processes
             instance.last_heartbeat = datetime.now(tz=timezone.utc)
         else:
             # Create new instance
             instance = models.Instance(
-                max_processes=max_processes,
                 hostname=hostname,
                 created_at=datetime.now(tz=timezone.utc),
                 last_heartbeat=datetime.now(tz=timezone.utc)

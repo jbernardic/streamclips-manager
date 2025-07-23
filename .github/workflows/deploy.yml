@@ -75,14 +75,6 @@ jobs:
         for server in $SERVERS; do
           echo "🚀 Deploying to $server..."
           
-          max_processes=$(hcloud server describe "$server" -o json | jq -r '
-            if (.labels.max_processes // null) != null then
-              .labels.max_processes
-            else
-              (.server.cores // .cores // 2 | tostring)
-            end
-          ')
-          
           # Pass variables through environment to SSH session
           hcloud server ssh $server "
             set -e
@@ -111,7 +103,6 @@ jobs:
               -e STORAGE_SERVER_USER='${{ secrets.STORAGE_SERVER_USER }}' \\
               -e STORAGE_SERVER_PASSWORD='${{ secrets.STORAGE_SERVER_PASSWORD }}' \\
               -e STORAGE_SERVER_PATH='${{ vars.STORAGE_SERVER_PATH }}' \\
-              -e INSTANCE_MAX_PROCESSES='$max_processes' \\
               -e INSTANCE_ID='$server' \\
               ghcr.io/${{ github.repository }}:latest
             

@@ -22,7 +22,7 @@ class Instance(Base):
     __tablename__ = "instances"
 
     hostname = Column(String, primary_key=True)
-    max_processes = Column(Integer, nullable=False, default=10)
+    max_processes = Column(Integer, nullable=False, default=5)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc))
     last_heartbeat = Column(DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc))
     
