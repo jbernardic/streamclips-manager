@@ -1,9 +1,8 @@
 
 import dotenv
+dotenv.load_dotenv(override=True)
 
 from app.core import configs, instances, stream_clips_processes
-
-dotenv.load_dotenv(override=True)
 
 from contextlib import asynccontextmanager
 from app.core.users import create_admin_user

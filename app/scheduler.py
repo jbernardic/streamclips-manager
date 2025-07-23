@@ -26,6 +26,9 @@ async def process_active_streamers():
             cleaned_count = instances.cleanup_dead_instance_processes(db, dead_instance.hostname)
             if cleaned_count > 0:
                 print(f"Cleaned up {cleaned_count} processes from dead instance {dead_instance.hostname}")
+
+        # Stop inactive processes
+        stream_clips_processes.stop_inactive_instance_processes(db, hostname)
         
         # Check capacity for this instance
         available_capacity = instances.get_available_capacity(db, hostname)
@@ -44,18 +47,12 @@ async def process_active_streamers():
             except Exception as e:
                 print(f"Failed to start process for {streamer.name}: {e}")
                 db.rollback()
-        
-        # Health check existing processes for this instance
-        my_processes = instances.get_instance_processes(db, hostname)
                 
     except Exception as e:
         print(f"Error in scheduler: {e}")
         db.rollback()   
     finally:
         db.close()
-
-    for process in my_processes:
-        await stream_clips_processes.stop_if_inactive(process.id, process.pid)
 
 
 def start_scheduler():

@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Enum, String, Boolean, Text, Integer, DateTime, ForeignKey, event, Float
+from sqlalchemy import Column, Enum, String, Boolean, Text, Integer, DateTime, ForeignKey, event, Float, inspect
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -41,6 +41,7 @@ class StreamClipsProcess(Base):
     instance_hostname = Column(String, ForeignKey("instances.hostname"), nullable=False)
     pid = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
+    last_activity = Column(DateTime(timezone=True), default=datetime.now(tz=timezone.utc))
     
     # Relationships
     streamer = relationship("Streamer", back_populates="stream_clips_process")
@@ -62,13 +63,18 @@ class Streamer(Base):
 def on_streamer_update(mapper, connection, target: Streamer):
     from app.core import stream_clips_processes
     from app.database.connection import get_db
-    
-    if target.stream_clips_process:
+
+    state = inspect(target)
+    # Check if any field other than `last_processed_at` has changed
+    dirty_keys = {attr.key for attr in state.attrs if attr.history.has_changes()}
+    # Only stop if something other than 'last_processed_at' changed
+    if dirty_keys - {'last_processed_at'} and target.stream_clips_process:
         db = next(get_db())
         try:
             stream_clips_processes.stop_process(db, str(target.stream_clips_process.id))
         except Exception as e:
             print(f"Error stopping process on streamer update: {e}")
+            db.rollback()
         finally:
             db.close()
 

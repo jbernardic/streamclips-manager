@@ -1,5 +1,7 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import io
+import select
 import psutil
 import os
 import signal
@@ -62,7 +64,7 @@ def start_process(db: Session, streamer: models.Streamer, instance_hostname: str
             cmd.extend(["--storage-path", storage_path])
     
     # Start new process
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, 
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1, text=True,
     start_new_session=True)
     
     # Save to database
@@ -77,32 +79,13 @@ def start_process(db: Session, streamer: models.Streamer, instance_hostname: str
     monitor_process_output(proc, new_process, streamer)
     return new_process
 
-async def is_hanging(pid):
-    check_duration = 10
-    cpu_threshold = 0.00
-
-    try:
-        p = psutil.Process(pid)
-    except psutil.NoSuchProcess:
-        return False  # Process does not exist
-    
-    cpu_start = p.cpu_times()
-    await asyncio.sleep(check_duration)
-    cpu_end = p.cpu_times()
-    
-    cpu_diff = (cpu_end.user - cpu_start.user) + (cpu_end.system - cpu_start.system)
-    return cpu_diff/check_duration <= cpu_threshold
-
-async def stop_if_inactive(db_proc_id: int, pid: int):
-    hanging = await is_hanging(pid)
-    if hanging:
-        db = next(get_db())
-        try:
-            stop_process(db, db_proc_id)
-        except Exception:
-            db.rollback()
-        finally:
-            db.close()
+def heartbeat_process(db: Session, db_proc_id: int):
+    process = db.query(models.StreamClipsProcess).filter(
+        models.StreamClipsProcess.id == db_proc_id
+    ).first()
+    if process:
+        process.last_activity = datetime.utcnow()
+        db.commit()
 
 def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsProcess, streamer: models.Streamer):
     source_name = streamer.name
@@ -119,6 +102,7 @@ def monitor_process_output(proc: subprocess.Popen, process: models.StreamClipsPr
                     if line.strip():
                         level = models.LogLevel.INFO if name == "stdout" else models.LogLevel.ERROR
                         logs.create(db, source=f"streamclips-{source_name}", message=line.strip(), level=level)
+                        heartbeat_process(db, db_proc_id)
                 # cleanup
                 stop_process(db, db_proc_id)
             except Exception as e:
@@ -190,6 +174,20 @@ def stop_all_processes():
         db.rollback()
     finally:
         db.close()
+
+def stop_inactive_instance_processes(db: Session, instance_hostname: str):
+    """Stop processes that haven't had any output for 60+ seconds"""
+    cutoff_time = datetime.now(tz=timezone.utc) - timedelta(seconds=60)
+    
+    # Find inactive processes for this instance
+    inactive_processes = db.query(models.StreamClipsProcess).filter(
+        models.StreamClipsProcess.instance_hostname == instance_hostname,
+        models.StreamClipsProcess.last_activity < cutoff_time
+    ).all()
+
+    for process in inactive_processes:
+        print(f"Stopping inactive process {process.pid}")
+        stop_process(db, process.id)
 
 def stop_instance_processes(instance_hostname: str):
     """Stop all processes for specific instance"""

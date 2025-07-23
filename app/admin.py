@@ -12,7 +12,7 @@ from .database.connection import get_db
 
 class StreamerAdmin(ModelView, model=models.Streamer):
     column_list = [models.Streamer.name, models.Streamer.url, models.Streamer.is_active, "processed_by"]
-    form_excluded_columns = [models.Streamer.stream_clips_process]
+    form_excluded_columns = [models.Streamer.stream_clips_process, models.Streamer.last_processed_at]
 
     def list_query(self, request: Request):
         return select(models.Streamer).options(
