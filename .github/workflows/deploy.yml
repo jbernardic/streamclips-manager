@@ -80,8 +80,8 @@ jobs:
             set -e
             
             echo '🛑 Stopping and removing old container...'
-            docker stop socialagents || true
-            docker rm socialagents || true
+            docker stop streamclips-manager || true
+            docker rm streamclips-manager || true
 
             echo '🗑️ Removing old images...'
             docker image prune -f
@@ -92,10 +92,10 @@ jobs:
             
             echo '▶️ Starting new container...'
             docker run -d \\
-              --name socialagents \\
+              --name streamclips-manager \\
               --restart unless-stopped \\
               -p 8000:8000 \\
-              -v socialagents_data:/app/data \\
+              -v streamclips-manager_data:/app/data \\
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \\
               -e SECRET_KEY='${{ secrets.SECRET_KEY }}' \\
               -e ADMIN_PASSWORD='${{ secrets.ADMIN_PASSWORD }}' \\
@@ -108,7 +108,7 @@ jobs:
             
             echo '✅ Deployment complete on' \$(hostname)
             echo '📊 Container status:'
-            docker ps | grep socialagents
+            docker ps | grep streamclips-manager
           "
           
           if [ $? -eq 0 ]; then
